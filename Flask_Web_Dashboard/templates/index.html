@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <title>Soldier Health Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            font-family: Arial;
+            background: #111;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 0 0 15px 0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+
+            width: 100%;
+            flex: 1;
+            align-content: space-evenly;   
+        }
+
+
+        h2 {
+            text-align: center;
+            margin: 15px 0 0 0;
+        }
+
+        .box {
+            background: #1e1e1e;
+            padding: 18px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            transition: 0.2s;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+        }
+
+        .box:hover {
+            transform: scale(1.03);
+        }
+
+        .status {
+            font-size: 22px;
+            font-weight: bold;
+            color: lime;
+        }
+
+        #map {
+            height: 400px;
+            width: 100%;
+            margin-top: 20px;
+            border-radius: 12px;
+        }
+
+        .chart-grid{
+            display:grid;
+            grid-template-columns: 1fr;
+            gap:20px;
+            margin-top:20px;
+            justify-items:center;
+        }
+
+        .chart-box{
+            background:#1e1e1e;
+            border-radius:12px;
+            padding:15px;
+            height:1500px;
+            width: 100%;
+            max-width:1000px;
+            margin:auto;
+        }
+
+        .chart-box canvas{
+            width:100% !important;
+            height:100% !important;
+        }
+
+    </style>
+
+</head>
+<body>
+
+<h1>🪖 Soldier Health Monitoring Dashboard</h1>
+<div class="grid">
+<div id="map"></div>
+<div class="box">BPM (Heart rate): <span id="bpm"></span></div>
+<div class="box">SpO2 (Oxygen level): <span id="spo2"></span></div>
+<div class="box">Temperature (Celsius): <span id="temp"></span></div>
+<div class="box">Humidity: <span id="hum"></span></div>
+<div class="box">AX: <span id="ax"></span></div>
+<div class="box">AY: <span id="ay"></span></div>
+<div class="box">AZ: <span id="az"></span></div>
+<div class="box" style="flex-direction:column; align-items:flex-start;">
+    <strong>📍 Soldier Location</strong><br>
+    Latitude:
+    <span id="lat"></span><br>
+
+    Longitude:
+    <span id="lon"></span>
+</div>
+</div>
+
+<h2>Soldier's Health Status: <span class="status" id="status"></span></h2>
+
+<h3 style="text-align:center;">
+Last Data Received:
+<span id="time"></span>
+</h3>
+
+<div style="margin-top:20px;">
+
+    <div class="chart-grid">
+
+        <div class="chart-box">
+            <canvas id="bpmChart"></canvas>
+        </div>
+
+        <div class="chart-box">
+            <canvas id="spo2Chart"></canvas>
+        </div>
+
+        <div class="chart-box">
+            <canvas id="tempChart"></canvas>
+        </div>
+
+    </div>
+
+</div>
+
+<div style="text-align:center; margin:40px 0;">
+
+    <a href="/download_csv">
+
+        <button style="
+            padding:15px 30px;
+            font-size:18px;
+            border:none;
+            border-radius:10px;
+            background:#00cc66;
+            color:white;
+            cursor:pointer;
+            font-weight:bold;
+        ">
+            Download Soldier's Data CSV
+        </button>
+
+    </a>
+
+</div>
+
+<script>
+    let map = L.map('map').setView([0, 0], 15);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    let marker = L.marker([0, 0]).addTo(map);
+
+    let labels = [];
+
+    let bpmData = [];
+    let spo2Data = [];
+    let tempData = [];
+
+    const bpmChart = new Chart(
+    document.getElementById('bpmChart'),
+    {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'BPM',
+                data: bpmData
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: 0,
+                    max: 200,
+                    ticks: {
+                        stepSize: 2.5
+                    }
+                }
+            }
+        }
+    }
+);
+
+    const spo2Chart = new Chart(
+    document.getElementById('spo2Chart'),
+    {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'SpO2',
+                data: spo2Data
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: 85,
+                    max: 100,
+                    ticks: {
+                        stepSize: 0.5
+                    }
+                }
+            }
+        }
+    }
+);
+
+    const tempChart = new Chart(
+    document.getElementById('tempChart'),
+    {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Temperature',
+                data: tempData
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        min: -20,
+                        max: 55,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        }
+    );
+    async function fetchData() {
+        const res = await fetch('/data');
+        const data = await res.json();
+
+        document.getElementById("bpm").innerText = data.bpm;
+        document.getElementById("spo2").innerText = data.spo2;
+        document.getElementById("temp").innerText = data.temp;
+        document.getElementById("hum").innerText = data.hum;
+
+        document.getElementById("ax").innerText = data.ax;
+        document.getElementById("ay").innerText = data.ay;
+        document.getElementById("az").innerText = data.az;
+
+        document.getElementById("lat").innerText = data.lat;
+        document.getElementById("lon").innerText = data.lon;
+
+        document.getElementById("status").innerText = data.status;
+
+        let statusElement = document.getElementById("status");
+
+        if(data.status === "Normal"){
+            statusElement.style.color = "#00FF00";      // Green
+        }
+        else if(data.status === "Fatigue"){
+            statusElement.style.color = "#FFD700";      // Yellow
+        }
+        else if(data.status === "Panic_Risk"){
+            statusElement.style.color = "#FF8C00";      // Dark Orange
+        }
+        else if(data.status === "Injury_Risk"){
+            statusElement.style.color = "#FF4500";      // Orange Red
+        }
+        else if(data.status === "Heat_Risk"){
+            statusElement.style.color = "#FF6347";      // Tomato
+        }
+        else if(data.status === "Cold_Risk"){
+            statusElement.style.color = "#00BFFF";      // Deep Sky Blue
+        }
+        else if(data.status === "Severe_Cold_Risk"){
+            statusElement.style.color = "#1E90FF";      // Dodger Blue
+        }
+        else if(data.status === "Heat_Stroke"){
+            statusElement.style.color = "#FF0000";      // Red
+        }
+        else if(data.status === "Data_Inconsistency"){
+            statusElement.style.color = "#808080";      // Gray
+        }
+        else{
+            statusElement.style.color = "#FFFFFF";      // White
+        }
+
+
+        if (data.lat !== 0 && data.lon !== 0) {
+            let newLatLng = [data.lat, data.lon];
+            marker.setLatLng(newLatLng);
+            map.setView(newLatLng);
+        }
+
+        document.getElementById("time").innerText = new Date().toLocaleTimeString();
+
+        labels.push(new Date().toLocaleTimeString());
+
+        bpmData.push(data.bpm);
+        spo2Data.push(data.spo2);
+        tempData.push(data.temp);
+
+        if(labels.length > 10){
+            labels.shift();
+
+            bpmData.shift();
+            spo2Data.shift();
+            tempData.shift();
+        }
+
+        bpmChart.update();
+        spo2Chart.update();
+        tempChart.update();
+    }
+
+    setInterval(fetchData, 5000);
+    fetchData();
+</script>
+
+</body>
+</html>
