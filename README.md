@@ -137,7 +137,7 @@ R.M.K. Engineering College
 ---
 
 **Project Title:**
-ML-Based Smart Soldier Safety Monitoring and Risk Prediction System
+Decision Tree Based Machine Learning Framework for Early Risk Prediction in Soldier Health Monitoring Using IoT and LoRa Communication
 
 **Project Type:**
 IEEE Research Project
